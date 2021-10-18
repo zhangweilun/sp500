@@ -2,8 +2,10 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from torch.utils.data import Dataset
 
-def create_dataset(data: pd.DataFrame, days_for_train=5, feature_nums=3, regression=True) -> (np.array, np.array):
+
+def create_dataset(data: pd.DataFrame, windows_size=5, feature_nums=3, regression=True) -> (np.array, np.array):
     """
         根据给定的序列data，生成数据集
 
@@ -17,16 +19,16 @@ def create_dataset(data: pd.DataFrame, days_for_train=5, feature_nums=3, regress
     data.rename(columns={str(y_name): 'y'})
     dataset_x, dataset_y = [], []
     if regression:
-        for i in range(len(data) - days_for_train):
-            x = data.iloc[i:i + days_for_train, :feature_nums]
+        for i in range(len(data) - windows_size):
+            x = data.iloc[i:i + windows_size, :feature_nums]
             dataset_x.append(x)
-        dataset_y = data.iloc[days_for_train:, data.shape[1] - 1:data.shape[1]]
+        dataset_y = data.iloc[windows_size:, data.shape[1] - 1:data.shape[1]]
         return np.array(dataset_x), np.array(dataset_y)
     else:
-        for i in range(len(data) - days_for_train):
-            x = data.iloc[i:i + days_for_train, :feature_nums]
+        for i in range(len(data) - windows_size):
+            x = data.iloc[i:i + windows_size, :feature_nums]
             dataset_x.append(x)
-        y = data.iloc[days_for_train - 1:, data.shape[1] - 1:data.shape[1]]
+        y = data.iloc[windows_size - 1:, data.shape[1] - 1:data.shape[1]]
         # 相邻两行相减
         y["tump"] = y["y"].shift(1)
         gap_y = y["y"] - y["tump"]
@@ -39,6 +41,29 @@ def create_dataset(data: pd.DataFrame, days_for_train=5, feature_nums=3, regress
             else:
                 dataset_y.append(0)
         return np.array(dataset_x), np.array(dataset_y)
+
+
+# 用某日前8天窗口数据作为输入预测该日数据
+WINDOW_SIZE = 8
+
+
+class SpDataset(Dataset):
+    """
+      TensorDataset继承Dataset, 重载了__init__(), __getitem__(), __len__()
+      实现将一组Tensor数据对封装成Tensor数据集
+      能够通过index得到数据集的数据，能够通过len，得到数据集大小
+      """
+
+    def __init__(self, data_tensor, target_tensor):
+        self.data_tensor = data_tensor
+        self.target_tensor = target_tensor
+
+    def __getitem__(self, index):
+        return self.data_tensor[index], self.target_tensor[index]
+
+    def __len__(self):
+        return self.data_tensor.size(0)
+
 
 
 if __name__ == '__main__':
