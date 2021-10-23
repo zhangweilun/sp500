@@ -73,7 +73,10 @@ class Net(torch.nn.Module):
 
     def forward(self, x_input):
         # [batch time feature] [:, -1, :] 去最后一天作为输出
-        x = self.lstm(x_input)[0][:, -1, :]
+        h0 = torch.randn(5, 10, 3)
+        c0 = torch.randn(5, 10, 3)
+        x = self.lstm(x_input, (h0, c0))[0]
+        x = x[:, -1, :]
         x = self.linear(x)
         x = self.relu(x)
         y = F.softmax(x, dim=1)
