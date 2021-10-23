@@ -6,6 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 import torch
 import torch.nn.functional as F
 
+
 def create_dataset(data: pd.DataFrame, windows_size=5, feature_nums=3, regression=True) -> (np.array, np.array):
     """
         根据给定的序列data，生成数据集
@@ -83,8 +84,6 @@ class Net(torch.nn.Module):
         return y
 
 
-
-
 if __name__ == '__main__':
     # 用某日前8天窗口数据作为输入预测该日数据
     WINDOW_SIZE = 5
@@ -114,11 +113,11 @@ if __name__ == '__main__':
     test_loss_all = []
     test_val_all = []
     for epoch in range(epochs):
-        print('Epoch {}/{}'.format(epoch, epochs-1))
+        print('Epoch {}/{}'.format(epoch, epochs - 1))
         model.train()
         corrects = 0
         train_num = 0
-        for step, (x , y) in enumerate(train_loader):
+        for step, (x, y) in enumerate(train_loader):
             # input:[batch, time_step, input_dim]
             out = model(x)
             loss = loss_function(out, y)
@@ -126,4 +125,3 @@ if __name__ == '__main__':
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
