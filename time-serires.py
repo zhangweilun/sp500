@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 import torch
 import torch.nn.functional as F
-
+import dataset
 import util.constant
 
 
@@ -91,6 +91,9 @@ if __name__ == '__main__':
     WINDOW_SIZE = util.constant.WINDOW_SIZE
     epochs = util.constant.EPOCHS
     feature_nums = util.constant.FEATURE_NUMS
+
+    train_loader, valid_loader, test_loader = dataset.input_data(r"F:\project\sp500\data")
+
     data = pd.read_csv("./data/SP500.csv")
     train_x, train_y = create_dataset(data, windows_size=WINDOW_SIZE, feature_nums=feature_nums, regression=False)
     # # displot 分布图 y轴为数量
