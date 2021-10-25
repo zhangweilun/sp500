@@ -6,6 +6,8 @@ from torch.utils.data import Dataset, DataLoader
 import torch
 import torch.nn.functional as F
 
+import util.constant
+
 
 def create_dataset(data: pd.DataFrame, windows_size=5, feature_nums=3, regression=True) -> (np.array, np.array):
     """
@@ -86,10 +88,11 @@ class Net(torch.nn.Module):
 
 if __name__ == '__main__':
     # 用某日前8天窗口数据作为输入预测该日数据
-    WINDOW_SIZE = 5
-    epochs = 150
+    WINDOW_SIZE = util.constant.WINDOW_SIZE
+    epochs = util.constant.EPOCHS
+    feature_nums = util.constant.FEATURE_NUMS
     data = pd.read_csv("./data/SP500.csv")
-    train_x, train_y = create_dataset(data, windows_size=WINDOW_SIZE, regression=False)
+    train_x, train_y = create_dataset(data, windows_size=WINDOW_SIZE, feature_nums=feature_nums, regression=False)
     # # displot 分布图 y轴为数量
     # sns.displot(train_y)
     # lineplot 折线图
