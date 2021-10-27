@@ -90,7 +90,7 @@ class Net(torch.nn.Module):
 
 if __name__ == '__main__':
 
-    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    gpu = torch.device('cuda')
     epochs = constant.EPOCHS
     learning_rate = constant.LEARNING_RATE
     weight_decay = constant.WEIGHT_DECAY
@@ -104,6 +104,7 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     model.cuda()
+    print("模型现在位于:{}".format(model.device))
     for epoch in range(epochs):
         print('*' * 30, 'epoch {}'.format(epoch + 1), '*' * 30)
         model.train()
@@ -111,6 +112,7 @@ if __name__ == '__main__':
         for i, data in enumerate(train_loader):
             images, labels = data
             images, labels = images.cuda(), labels.cuda()
+            print("imgaes现在位于:{},labels现在位于:{}".format(images.device, labels.device))
             optimizer.zero_grad()
             outputs = model(images)
             loss = criterion(outputs + epsilon, labels)

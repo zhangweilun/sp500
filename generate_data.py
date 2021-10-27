@@ -6,26 +6,36 @@ import numpy as np
 from pyecharts import options as opts
 from pyecharts.charts import Bar
 from pyecharts.render import make_snapshot
-import util.constant
+import util.constant as constant
 
 
-def generate_data(data_dir: str):
-    """
-    用于生成图片 以产生label
-    :param data_dir:
-    :return:
-    """
+def generate_data(data_dir: str, env: constant.Env) -> pd.DataFrame:
     data = pd.read_csv(data_dir)
-    windows_size = util.constant.WINDOW_SIZE
-    feature_nums = util.constant.FEATURE_NUMS
     train_num = int(len(data) * 0.7)
     train_data = data.iloc[0:train_num, :]
     valid_num = int(len(data) * 0.2)
     valid_data = data.iloc[train_num:train_num + valid_num, :]
     test_data = data.iloc[train_num + valid_num:, :]
+    if env.TRAIN == env:
+        return train_data
+    elif env.VALID == env:
+        return valid_data
+    elif env.TEST == env:
+        return test_data
+
+
+def out_image(out_dir: str, data: pd.DataFrame):
+    """
+    用于生成图片 以产生label
+    :param data:
+    :param out_dir: 输出目录
+    :return:
+    """
+    windows_size = constant.WINDOW_SIZE
+    feature_nums = constant.FEATURE_NUMS
     train_y = []
     # label产生
-    y = train_data.iloc[windows_size - 1:, train_data.shape[1] - 1:train_data.shape[1]]
+    y = data.iloc[windows_size - 1:, data.shape[1] - 1:data.shape[1]]
     # 相邻两行相减
     y["tump"] = y["y"].shift(1)
     gap_y = y["y"] - y["tump"]
@@ -38,7 +48,7 @@ def generate_data(data_dir: str):
         else:
             train_y.append(0)
     # 产生训练数据
-    for i in range(len(train_data) - windows_size):
+    for i in range(len(data) - windows_size):
         # open close lowest highest
         x = data.iloc[i:i + windows_size, 1:feature_nums]
         time = data.iloc[i:i + windows_size, :1]
@@ -61,9 +71,10 @@ def generate_data(data_dir: str):
             sub_name = "dog"
         elif train_y[i] == 1:
             sub_name = "cat"
-        name = "F:\\project\\sp500\\data\\train\\{}\\bar_{}.png".format(sub_name, i)
+        name = out_dir + r"\{}\bar_{}.png".format(sub_name, i)
         make_snapshot(driver, k.render(), name)
 
 
 if __name__ == '__main__':
-    generate_data(r"F:\project\sp500\data\SP500.csv")
+    data = generate_data(r"F:\project\sp500\data\SP500.csv", constant.Env.TRAIN)
+    out_image(r"F:\project\sp500\data" + constant.Env.TRAIN.name, data)
