@@ -1,12 +1,14 @@
+import json
+
 import numpy as np
 import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
+import torch.nn as nn
+from torch import optim
 from torch.utils.data import Dataset, DataLoader
 import torch
 import torch.nn.functional as F
 import dataset
-import util.constant
+import util.constant as constant
 
 
 def create_dataset(data: pd.DataFrame, windows_size=5, feature_nums=3, regression=True) -> (np.array, np.array):
@@ -87,47 +89,66 @@ class Net(torch.nn.Module):
 
 
 if __name__ == '__main__':
-    # 用某日前8天窗口数据作为输入预测该日数据
-    WINDOW_SIZE = util.constant.WINDOW_SIZE
-    epochs = util.constant.EPOCHS
-    feature_nums = util.constant.FEATURE_NUMS
 
-    train_loader, valid_loader, test_loader = dataset.input_data(r"F:\project\sp500\data")
-
-    data = pd.read_csv("./data/SP500.csv")
-    train_x, train_y = create_dataset(data, windows_size=WINDOW_SIZE, feature_nums=feature_nums, regression=False)
-    # # displot 分布图 y轴为数量
-    # sns.displot(train_y)
-    # lineplot 折线图
-    # sns.lineplot(x=data['Date'], y=data['Close'])
-    # plt.show()
-    # 生成数据
-    data_tensor = torch.from_numpy(train_x.astype(np.float32))
-    # data_tensor = torch.from_numpy(train_x)
-    target_tensor = torch.from_numpy(train_y.astype(np.float32))
-    # 将数据封装成Dataset
-    tensor_dataset = SpDataset(data_tensor, target_tensor)
-
-    # 数据较小，可以将全部训练数据放入到一个batch中，提升性能
-    train_loader = DataLoader(tensor_dataset, batch_size=10)
-
+    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    epochs = constant.EPOCHS
+    learning_rate = constant.LEARNING_RATE
+    weight_decay = constant.WEIGHT_DECAY
+    epsilon = constant.EPSILON
+    max_acc = constant.MAX_ACC
     model = Net()
-    loss_function = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    train_loss_all = []
-    train_acc_all = []
-    test_loss_all = []
-    test_val_all = []
+    train_datum, valid_datum, test_datum = dataset.get_dataset(r"F:\project\sp500\data")
+    train_loader, valid_loader, test_loader = dataset.get_data_loader(r"F:\project\sp500\data")
+    train_loss, train_acc = [], []
+    valid_loss, valid_acc = [], []
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    model.cuda()
     for epoch in range(epochs):
-        print('Epoch {}/{}'.format(epoch, epochs - 1))
+        print('*' * 30, 'epoch {}'.format(epoch + 1), '*' * 30)
         model.train()
-        corrects = 0
-        train_num = 0
-        for step, (x, y) in enumerate(train_loader):
-            # input:[batch, time_step, input_dim]
-            out = model(x)
-            loss = loss_function(out, y)
-            print('loss:', loss.item())
+        running_loss, running_acc = 0.0, 0.0
+        for i, data in enumerate(train_loader):
+            images, labels = data
+            images, labels = images.cuda(), labels.cuda()
             optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs + epsilon, labels)
+            running_loss += loss.item() * labels.size(0)
+            _, preds = torch.max(outputs, 1)
+            num_correct = (preds == labels).sum()
+            running_acc += num_correct.item()
             loss.backward()
             optimizer.step()
+        print('Finish {} epoch\nLoss: {:.6f}, Acc: {:.6f}'.format(epoch + 1, running_loss * 100 / len(train_datum),
+                                                                  running_acc * 100 / len(train_datum)))
+        train_acc.append(running_acc * 100 / len(train_datum))
+        train_loss.append(running_loss * 100 / len(train_datum))
+
+        model.eval()
+        eval_loss = 0.0
+        eval_acc = 0.0
+        for data in valid_loader:
+            images, labels = data
+            images, labels = images.cuda(), labels.cuda()
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            eval_loss = eval_loss + loss.item() * labels.size(0)
+            _, preds = torch.max(outputs, 1)
+            num_correct = (preds == labels).sum()
+            eval_acc = eval_acc + num_correct.item()
+        print('Valid Loss: {:.6f}, Acc: {:.6f}'.format(eval_loss * 100 / len(valid_datum),
+                                                       eval_acc * 100 / len(valid_datum)))
+        valid_acc.append(eval_acc * 100 / len(valid_datum))
+        valid_loss.append(eval_loss * 100 / len(valid_datum))
+        if (eval_acc * 100 / len(valid_datum)) > max_acc:
+            max_acc = eval_acc * 100 / len(valid_datum)
+            torch.save(model.state_dict(), '.\\trained_model\\best_model_basic_CBAM_31_mat.pth')
+    print(max_acc)
+    with open('.\\loss_acc\\train_basic_CBAM_31_mat', 'a+') as f1:
+        json.dump(train_loss, f1)
+        json.dump(train_acc, f1)
+    with open('.\\loss_acc\\valid_basic_CBAM_31_mat', 'a+') as f2:
+        json.dump(valid_loss, f2)
+        json.dump(valid_acc, f2)
+    torch.save(model.state_dict(), '.\\trained_model\\final_model_basic_CBAM_31_mat.pth')
